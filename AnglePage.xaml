@@ -29,17 +29,15 @@
                        IsHitTestVisible="false" TextWrapping="NoWrap" VerticalAlignment="Center" />
             <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Grid.Column="1" TextAlignment="Right"
                        IsHitTestVisible="false" TextWrapping="NoWrap" VerticalAlignment="Center" Margin="0,0,20,0">
-                <Run x:Name="tblAngle" Text="-" />°
+                <Run x:Name="tblAngle" Text="-" />
             </TextBlock>
         </Grid>
 
         <Grid Grid.Row="1">
-            <controls:KinectViewer x:Name="viewer" />
-            <Viewbox>
-                <Canvas Width="1920" Height="1080">
-                    <controls:KinectAngle x:Name="angle" Opacity="0.5" Fill="Green" />
-                </Canvas>
-            </Viewbox>
+            <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Grid.Column="1" TextAlignment="Center" FontSize="36pt"
+                       IsHitTestVisible="false" TextWrapping="Wrap" VerticalAlignment="Center">
+                <Run x:Name="tblResultsText" Text="TEXT HERE" />
+            </TextBlock>
         </Grid>
     </Grid>
 </Page>

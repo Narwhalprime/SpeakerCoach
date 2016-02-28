@@ -1,6 +1,10 @@
 ﻿using LightBuzz.Vitruvius;
 using Microsoft.Kinect;
 using System.Windows;
+using System;
+using System.IO;
+using System.Collections;
+using System.Collections.Generic;
 using System.Windows.Controls;
 using System.Windows.Navigation;
 
@@ -8,50 +12,56 @@ namespace LightBuzz.Vituvius.Samples.WPF
 {
     public partial class AnglePage : Page
     {
-        KinectSensor _sensor;
-        MultiSourceFrameReader _reader;
-        PlayersController _userReporter;
-
-        JointType _start = JointType.ShoulderRight;
-        JointType _center = JointType.ElbowRight;
-        JointType _end = JointType.WristRight;
+        public readonly String RESULT_FILE_PATH = @"C:\Users\Douglass\Desktop\Kinect stuff\Kinect_LightBuzzStrippedTest\Assets\results.txt";
 
         public AnglePage()
         {
             InitializeComponent();
 
-            _sensor = KinectSensor.GetDefault();
-
-            if (_sensor != null)
-            {
-                _sensor.Open();
-
-                _reader = _sensor.OpenMultiSourceFrameReader(FrameSourceTypes.Color | FrameSourceTypes.Depth | FrameSourceTypes.Infrared | FrameSourceTypes.Body);
-                _reader.MultiSourceFrameArrived += Reader_MultiSourceFrameArrived;
-
-                _userReporter = new PlayersController();
-                _userReporter.BodyEntered += UserReporter_BodyEntered;
-                _userReporter.BodyLeft += UserReporter_BodyLeft;
-                _userReporter.Start();
+            // Get the file I/O going
+            String output = "";
+            try {
+                string theResultsText = System.IO.File.ReadAllText(RESULT_FILE_PATH);
+                string[] tokens = theResultsText.Split('\n');
+                long startTime = Convert.ToInt64(tokens[0]);
+                long endTime = Convert.ToInt64(tokens[1]);
+                output += "Presentation duration: " + (endTime - startTime) + " seconds\n";
+                int ind = 2;
+                while(ind < tokens.Length)
+                {
+                    long flagTime = Convert.ToInt64(tokens[ind]);
+                    ind++;
+                    String flagType = tokens[ind];
+                    ind++;
+                    long numSecondsIn = flagTime - startTime;
+                    switch(flagType)
+                    {
+                        case "HeadUp":
+                        output += "At " + numSecondsIn + " seconds in, you looked upwards for a bit too long.\n";
+                        break;
+                        case "HeadDown":
+                        output += "At " + numSecondsIn + " seconds in, you looked downwards for a bit too long.\n";
+                        break;
+                        case "HeadStatic":
+                        output += "Starting at around " + numSecondsIn + " seconds in, your eyes should sweep across the audience more often.\n";
+                        break;
+                        case "Shoulders":
+                        output += "At " + numSecondsIn + " seconds in, you either slouched or tilted your shoulders too far - posture is key!\n";
+                        break;
+                    }
+                }
             }
-        }
+            catch(FileNotFoundException e)
+            {
+                output = "No results file found! Perform a practice presentation to see results here.";
+            }
 
+            tblResultsText.Text = output;
+        }
+           
         private void Page_Unloaded(object sender, RoutedEventArgs e)
         {
-            if (_userReporter != null)
-            {
-                _userReporter.Stop();
-            }
-
-            if (_reader != null)
-            {
-                _reader.Dispose();
-            }
-
-            if (_sensor != null)
-            {
-                _sensor.Close();
-            }
+            
         }
 
         private void Back_Click(object sender, RoutedEventArgs e)
@@ -60,56 +70,6 @@ namespace LightBuzz.Vituvius.Samples.WPF
             {
                 NavigationService.GoBack();
             }
-        }
-
-        void Reader_MultiSourceFrameArrived(object sender, MultiSourceFrameArrivedEventArgs e)
-        {
-            var reference = e.FrameReference.AcquireFrame();
-
-            // Color
-            using (var frame = reference.ColorFrameReference.AcquireFrame())
-            {
-                if (frame != null)
-                {
-                    if (viewer.Visualization == Visualization.Color)
-                    {
-                        viewer.Image = frame.ToBitmap();
-                    }
-                }
-            }
-
-            // Body
-            using (var frame = reference.BodyFrameReference.AcquireFrame())
-            {
-                if (frame != null)
-                {
-                    var bodies = frame.Bodies();
-
-                    _userReporter.Update(bodies);
-
-                    Body body = bodies.Closest();
-
-                    if (body != null)
-                    {
-                        viewer.DrawBody(body);
-                        angle.Update(body.Joints[_start], body.Joints[_center], body.Joints[_end], 100);
-
-                        tblAngle.Text = ((int)angle.Angle).ToString();
-                    }
-                }
-            }
-        }
-
-        void UserReporter_BodyEntered(object sender, PlayersControllerEventArgs e)
-        {
-        }
-
-        void UserReporter_BodyLeft(object sender, PlayersControllerEventArgs e)
-        {
-            viewer.Clear();
-            angle.Clear();
-
-            tblAngle.Text = "-";
         }
     }
 }

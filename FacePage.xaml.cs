@@ -16,13 +16,13 @@ namespace LightBuzz.Vituvius.Samples.WPF
 {
     public enum FlagType
     {
-        HeadUp, HeadDown, HeadLeft, HeadRight, Shoulders
+        HeadUp, HeadDown, HeadStatic, Shoulders
     };
 
     public class PresentationFlag
     {
-        FlagType flag;
-        long timestamp = 0;
+        public FlagType flag;
+        public long timestamp = 0;
         public PresentationFlag(FlagType f, long t)
         {
             flag = f;
@@ -32,6 +32,7 @@ namespace LightBuzz.Vituvius.Samples.WPF
 
     public partial class FacePage : Page
     {
+        // Essential sensors
         private KinectSensor _sensor = null;
         private InfraredFrameSource _infraredSource = null;
         private InfraredFrameReader _infraredReader = null;
@@ -41,17 +42,18 @@ namespace LightBuzz.Vituvius.Samples.WPF
         private HighDefinitionFaceFrameReader _faceReader = null;
         
         private List<Ellipse> _ellipses = new List<Ellipse>();
-        private List<PresentationFlag> _currentFlags = new List<PresentationFlag>();
+        private List<PresentationFlag> _myFlags = new List<PresentationFlag>();
 
         private readonly int FRAME_INTERVAL = 10; // for testing
-        private readonly int RECOMMEND_TIME = 3; // how long should user position head
+        private readonly int RECOMMEND_TIME = 2; // how long should user position head
         private int frameCount = 0;
         private long startTime;
 
-        /* ADDED BY DOUG */
         // Settings about the user's neutral/looking away positions
         private double[] yTilts = new double[3]; // neutral, left, right; forehead/chin points
         private double[] xTilts = new double[3]; // neutral, up, down; cheek points
+
+        // State machines for the application
         private enum FaceState
         {
             None, KinectWait, FaceWait,
@@ -65,28 +67,35 @@ namespace LightBuzz.Vituvius.Samples.WPF
             FrontWait, Ready
         };
         private BodyState currBodyState = BodyState.None;
+        private enum FaceOrientation
+        {
+            Forward, Left, Right
+        };
+        private FaceOrientation currFaceOrientation = FaceOrientation.Forward;
 
         // temporary tracker variables while in setup phase
-        private readonly int NUM_SAMPLES = 50;
+        private readonly int NUM_SAMPLES = 40;
         private int sampleInd = 0;
         private double[] faceSamples;
 
         // posture-related live values
         JointType sholL = JointType.ShoulderLeft;
         JointType sholR = JointType.ShoulderRight;
+        private readonly double FRONT_FACING_THRESHOLD = 0.15;
+        private readonly int CURR_ZONE_THRESHOLD = 200;
         private double currRotation = 0.0;
         private double currYTilt = 0.0;
         private double currXTilt = 0.0;
-        private readonly double FRONT_FACING_THRESHOLD = 0.15; // would modify based on distance from camera?
-        private readonly int ALERT_DELAY_FRAMES = 90;
-        private int delayFrames = 0;
-        private readonly String ALERT_WAV_PATH = @"C:\Users\Douglass\Desktop\Kinect stuff\Kinect_LightBuzzStrippedTest\Assets\alert.wav";
+        private int currZoneFrames = 0;
 
-        // presentation mode - track how many times a flag is activated for each flag
-        int[] flagRuns;
-        
+        // flag alert stuff
         private readonly int RUN_THRESHOLD = 50;
-
+        private readonly int ALERT_DELAY_FRAMES = 90;
+        private readonly String ALERT_WAV_PATH = @"C:\Users\Douglass\Desktop\Kinect stuff\Kinect_LightBuzzStrippedTest\Assets\alert.wav";
+        public readonly String RESULT_FILE_PATH = @"C:\Users\Douglass\Desktop\Kinect stuff\Kinect_LightBuzzStrippedTest\Assets\results.txt";
+        int[] flagRuns;
+        private int delayFrames = 0;
+        
         public FacePage()
         {
             System.Media.SoundPlayer player = new System.Media.SoundPlayer();
@@ -192,7 +201,13 @@ namespace LightBuzz.Vituvius.Samples.WPF
                     break;
                 case FaceState.Presentation:
                     currFaceState = FaceState.Evaluation;
-                    // TODO: Record the results
+                    string flagsText = "";
+                    foreach(PresentationFlag pf in _myFlags)
+                    {
+                        flagsText += "" + pf.timestamp + '\n';
+                        flagsText += pf.flag.ToString() + '\n';
+                    }
+                    System.IO.File.WriteAllText(RESULT_FILE_PATH, "" + startTime + '\n' + getCurrentTimeMillis() + '\n' + flagsText);
                     break;
             }
         }
@@ -216,7 +231,6 @@ namespace LightBuzz.Vituvius.Samples.WPF
                 {
                     Body body = frame.Bodies().Closest();
 
-                    /* ADDED BY DOUG */
                     // If we have a body, check the joints and their positions/angles
                     if (body != null)
                     {
@@ -227,8 +241,7 @@ namespace LightBuzz.Vituvius.Samples.WPF
                         if (frameCount >= FRAME_INTERVAL)
                         {
                             currRotation = Math.Round(Math.Abs(joints[sholR].Position.Z - joints[sholL].Position.Z), 4);
-                            tblRecords.Text = "Shoulders' Z\ndifference: \n"
-                                + currRotation;
+                            tblRecords.Text = "Shoulders' Z\ndifference: \n" + currRotation;
                             frameCount = 0;
                         }
                         
@@ -316,12 +329,12 @@ namespace LightBuzz.Vituvius.Samples.WPF
                             faceSamples[sampleInd] = Math.Round(face.Chin.Z - face.Forehead.Z, 4);
                             break;
                         case FaceState.LeftTiltWait:
-                            output += "Step 5/6: Turn your head 45 degress diagonally 45 degrees to the left.\n"
+                            output += "Step 5/6: Turn your head slightly to the left.\n"
                             + "Hold for at least " + RECOMMEND_TIME + " seconds, then press OK.\n";
                             faceSamples[sampleInd] = Math.Round(face.CheekRight.Z - face.CheekLeft.Z, 4);
                             break;
                         case FaceState.RightTiltWait:
-                            output += "Step 6/6: Now turn your head 45 degress diagonally 45 degrees to the right.\n"
+                            output += "Step 6/6: Now turn your head slightly to to the right.\n"
                             + "Hold for at least " + RECOMMEND_TIME + " seconds, then press OK.\n";
                             faceSamples[sampleInd] = Math.Round(face.CheekRight.Z - face.CheekLeft.Z, 4);
                             break;
@@ -375,28 +388,25 @@ namespace LightBuzz.Vituvius.Samples.WPF
                                 }
                             }
 
+                            // track which way speaker is facing now
                             currXTilt = Math.Round(face.CheekRight.Z - face.CheekLeft.Z, 4);
-                            if(Math.Abs(currXTilt - xTilts[0]) > Math.Abs(currXTilt - xTilts[1]))
+                            FaceOrientation newOrientation = getFaceOrientation(currXTilt);
+                            if (newOrientation == currFaceOrientation)
                             {
-                                enumInd = Convert.ToInt32(FlagType.HeadLeft);
-                                flagRuns[enumInd]++;
-                                if (flagRuns[enumInd] >= RUN_THRESHOLD)
-                                {
-                                    flagRuns[enumInd] = 0;
-                                    AlertFlag("Reminder: Tilt head back to the front!", FlagType.HeadLeft);
-                                    alerted = true;
-                                }
+                                currZoneFrames++;
                             }
-                            else if (Math.Abs(currXTilt - xTilts[0]) > Math.Abs(currXTilt - xTilts[2]))
+                            else
                             {
-                                enumInd = Convert.ToInt32(FlagType.HeadRight);
-                                flagRuns[enumInd]++;
-                                if (flagRuns[enumInd] >= RUN_THRESHOLD)
-                                {
-                                    flagRuns[enumInd] = 0;
-                                    AlertFlag("Reminder: Tilt head back to the front!", FlagType.HeadRight);
-                                    alerted = true;
-                                }
+                                currZoneFrames = 0;
+                                currFaceOrientation = newOrientation;
+                            }
+
+                            if(currZoneFrames >= CURR_ZONE_THRESHOLD)
+                            {
+                                currZoneFrames = 0;
+                                enumInd = Convert.ToInt32(FlagType.HeadStatic);
+                                AlertFlag("Reminder: Face different parts of the audience more often!", FlagType.HeadStatic);
+                                alerted = true;
                             }
 
                             if(currRotation > FRONT_FACING_THRESHOLD)
@@ -414,7 +424,7 @@ namespace LightBuzz.Vituvius.Samples.WPF
                             {
                                 tblFeedback.Foreground = Brushes.Black;
                                 tblFeedback.Text = "READY";
-                                tblFeedback.FontSize = 18.0;
+                                tblFeedback.FontSize = 15.0;
                                 tblFeedback.FontStyle = FontStyles.Oblique;
                                 tblFeedback.FontWeight = FontWeights.ExtraBold;
                             }
@@ -453,12 +463,25 @@ namespace LightBuzz.Vituvius.Samples.WPF
             long flagTime = getCurrentTimeMillis();
 
             // Add flag to list
-            _currentFlags.Add(new PresentationFlag(type, flagTime));
+            _myFlags.Add(new PresentationFlag(type, flagTime));
         }
 
         public long getCurrentTimeMillis()
         {
             return DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+        }
+
+        private FaceOrientation getFaceOrientation(double xTilt)
+        {
+            double forward = Math.Abs(xTilt - xTilts[0]);
+            double left = Math.Abs(xTilt - xTilts[1]);
+            double right = Math.Abs(xTilt - xTilts[2]);
+            if (forward < left && forward < right)
+                return FaceOrientation.Forward;
+            else if (left < forward && left < right)
+                return FaceOrientation.Left;
+            else
+                return FaceOrientation.Right;
         }
     }
 }

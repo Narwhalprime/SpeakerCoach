@@ -38,7 +38,7 @@
         <Button Grid.Row="2" Grid.Column="2" Style="{StaticResource ButtonTileStyle}" Click="Angle_Click">
             <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Grid.Row="1" Grid.Column="1" TextAlignment="Center"
                        TextWrapping="Wrap" VerticalAlignment="Center">
-                 View previous evaluations
+                 View evaluation
             </TextBlock>
         </Button>
 
