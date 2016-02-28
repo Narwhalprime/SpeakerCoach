@@ -1,0 +1,46 @@
+﻿<Page x:Class="LightBuzz.Vituvius.Samples.WPF.MainPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      mc:Ignorable="d" 
+      d:DesignHeight="700" d:DesignWidth="900"
+      Title="Samples">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Grid.Row="0" TextAlignment="Center"
+                       TextWrapping="Wrap" VerticalAlignment="Center" Grid.ColumnSpan="3" FontSize="32pt">
+                <Run x:Name="tblTitleHeader" Text="SpeakerCoach&#x0a;Developed by Douglass Chen&#x0a;HackTech 2016"/>
+        </TextBlock>
+        <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Grid.Row="1" Grid.Column="0" TextAlignment="Center"
+                       TextWrapping="Wrap" VerticalAlignment="Center">
+                <Run x:Name="tblTitleAckMSFT" Text="Made with Microsoft Kinect" />
+        </TextBlock>
+        <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Grid.Row="1" Grid.Column="2" TextAlignment="Center"
+                       TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,45,0,69">
+                <Run x:Name="tblTitleAckVirtuvius" Text="Demo base and inspiration&#x0a;provided by Virtuvius" />
+        </TextBlock>
+        <Button Grid.Row="2" Style="{StaticResource ButtonTileStyle}" Click="Face_Click" Margin="20">
+            <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Grid.Row="1" Grid.Column="1" TextAlignment="Center"
+                       TextWrapping="Wrap" VerticalAlignment="Center">
+                 Start practice session
+            </TextBlock>
+        </Button>
+        <Button Grid.Row="2" Grid.Column="2" Style="{StaticResource ButtonTileStyle}" Click="Angle_Click">
+            <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Grid.Row="1" Grid.Column="1" TextAlignment="Center"
+                       TextWrapping="Wrap" VerticalAlignment="Center">
+                 View previous evaluations
+            </TextBlock>
+        </Button>
+
+    </Grid>
+</Page>

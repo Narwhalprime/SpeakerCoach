@@ -1,0 +1,57 @@
+﻿<Page x:Class="LightBuzz.Vituvius.Samples.WPF.FacePage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      mc:Ignorable="d" 
+      d:DesignHeight="700" d:DesignWidth="900"
+      Title="Practice Session"
+      Unloaded="Page_Unloaded">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="90"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Back button and page title -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="90"/>
+                <ColumnDefinition Width="72*"/>
+                <ColumnDefinition Width="106*"/>
+                <ColumnDefinition Width="92*"/>
+                <ColumnDefinition Width="135*"/>
+            </Grid.ColumnDefinitions>
+            <Button x:Name="backButton" Click="Back_Click" Grid.Column="0"
+                    Style="{StaticResource NavigationBackButtonNormalStyle}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" Height="82" Margin="0,4" Width="90"/>
+            <TextBlock x:Name="pageTitle" Text="Back" Style="{StaticResource HeaderTextBlockStyle}" 
+                       IsHitTestVisible="false" TextWrapping="NoWrap" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,25" Width="210" Grid.ColumnSpan="2" Height="40" />
+            <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Grid.Column="2" TextAlignment="Center"
+                       IsHitTestVisible="false" TextWrapping="NoWrap" VerticalAlignment="Center" FontSize="14pt" Height="80" Grid.ColumnSpan="2">
+                <Run x:Name="tblFaceStatus" Text="-----" />
+            </TextBlock>
+            <Button x:Name="okButton" Grid.Column="4" Click="Okay_Click"
+                Style="{StaticResource NavigationBackButtonNormalStyle}"
+                HorizontalAlignment="Center" FontSize="20pt"
+                VerticalAlignment="Center" Content="Okay" Height="82" Width="194" Margin="38,4"/>
+        </Grid>
+        <Viewbox Grid.Row="1">
+            <Grid Width="512" Height="424" Background="Black">
+                <Image Name="camera" />
+                <Canvas Name="canvas">
+                    <Ellipse Name="eyeLeft" Width="2" Height="2" Fill="Orange" />
+                    <Ellipse Name="eyeRight" Width="2" Height="2" Fill="Orange" />
+                    <Ellipse Name="cheekLeft" Width="2" Height="2" Fill="Orange" />
+                    <Ellipse Name="cheekRight" Width="2" Height="2" Fill="Orange" />
+                    <Ellipse Name="nose" Width="2" Height="2" Fill="Orange" />
+                    <Ellipse Name="mouth" Width="2" Height="2" Fill="Orange" />
+                    <Ellipse Name="chin" Width="2" Height="2" Fill="Orange" />
+                    <Ellipse Name="forehead" Width="2" Height="2" Fill="Orange" />
+                </Canvas>
+            </Grid>
+        </Viewbox>
+    </Grid>
+</Page>
