@@ -1,4 +1,7 @@
-﻿using LightBuzz.Vitruvius;
+﻿// By Douglass Chen
+// WPF initial sample from Vitrivius examples
+
+using LightBuzz.Vitruvius;
 using Microsoft.Kinect;
 using Microsoft.Kinect.Face;
 using System;
@@ -32,20 +35,38 @@ namespace LightBuzz.Vituvius.Samples.WPF
         // Settings about the user's neutral/looking away positions
         private double[] yTilts = new double[3]; // neutral, left, right; forehead/chin points
         private double[] xTilts = new double[3]; // neutral, up, down; cheek points
-        private enum PracticeState {None, KinectWait, FaceWait, NeutralWait,
-        UpTiltWait, DownTiltWait, LeftTiltWait, RightTiltWait, Presentation, Evaluation};
-        private PracticeState currentState = PracticeState.None;
+        private enum FaceState
+        {
+            None, KinectWait, FaceWait,
+            NeutralWait, UpTiltWait, DownTiltWait, LeftTiltWait, RightTiltWait,
+            Presentation, Evaluation
+        };
+        private FaceState currFaceState = FaceState.None;
+        private enum BodyState
+        {
+            None, KinectWait, BodyWait,
+            FrontWait, Ready
+        };
+        private BodyState currBodyState = BodyState.None;
 
         // temporary tracker variables while in setup phase
         private readonly int NUM_SAMPLES = 50;
         private int sampleInd = 0;
         private double[] faceSamples;
 
+        // posture-related
+        JointType sholL = JointType.ShoulderLeft;
+        JointType spMid = JointType.SpineMid;
+        JointType sholR = JointType.ShoulderRight;
+        private double currRotation = 0.0;
+        private readonly double FRONT_FACING_THRESHOLD = 0.15; // TODO: modify based on distance from camera?
+
         public FacePage()
         {
             InitializeComponent();
 
-            currentState = PracticeState.KinectWait;
+            currFaceState = FaceState.KinectWait;
+            currBodyState = BodyState.KinectWait;
             faceSamples = new double[NUM_SAMPLES];
 
             _sensor = KinectSensor.GetDefault();
@@ -53,7 +74,8 @@ namespace LightBuzz.Vituvius.Samples.WPF
 
             if (_sensor != null)
             {
-                currentState = PracticeState.FaceWait;
+                currFaceState = FaceState.FaceWait;
+                currBodyState = BodyState.BodyWait;
                 _infraredSource = _sensor.InfraredFrameSource;
                 _infraredReader = _infraredSource.OpenReader();
                 _infraredReader.FrameArrived += InfraredReader_FrameArrived;
@@ -70,9 +92,10 @@ namespace LightBuzz.Vituvius.Samples.WPF
             }
         }
 
+        // Free up the resources upon leaving this screen
         private void Page_Unloaded(object sender, RoutedEventArgs e)
         {
-            currentState = PracticeState.None;
+            currFaceState = FaceState.None;
             if (_faceReader != null)
             {
                 _faceReader.Dispose();
@@ -112,31 +135,31 @@ namespace LightBuzz.Vituvius.Samples.WPF
                 average += d;
             average /= NUM_SAMPLES;
 
-            switch(currentState)
+            switch(currFaceState)
             {
-                case PracticeState.NeutralWait:
+                case FaceState.NeutralWait:
                     yTilts[0] = average;
                     xTilts[0] = average;
-                    currentState = PracticeState.UpTiltWait;
+                    currFaceState = FaceState.UpTiltWait;
                     break;
-                case PracticeState.UpTiltWait:
+                case FaceState.UpTiltWait:
                     yTilts[1] = average;
-                    currentState = PracticeState.DownTiltWait;
+                    currFaceState = FaceState.DownTiltWait;
                     break;
-                case PracticeState.DownTiltWait:
+                case FaceState.DownTiltWait:
                     yTilts[2] = average;
-                    currentState = PracticeState.LeftTiltWait;
+                    currFaceState = FaceState.LeftTiltWait;
                     break;
-                case PracticeState.LeftTiltWait:
+                case FaceState.LeftTiltWait:
                     xTilts[1] = average;
-                    currentState = PracticeState.RightTiltWait;
+                    currFaceState = FaceState.RightTiltWait;
                     break;
-                case PracticeState.RightTiltWait:
+                case FaceState.RightTiltWait:
                     xTilts[2] = average;
-                    currentState = PracticeState.Presentation;
+                    currFaceState = FaceState.Presentation;
                     break;
-                case PracticeState.Presentation:
-                    currentState = PracticeState.Evaluation;
+                case FaceState.Presentation:
+                    currFaceState = FaceState.Evaluation;
                     break;
             }
         }
@@ -160,11 +183,34 @@ namespace LightBuzz.Vituvius.Samples.WPF
                 {
                     Body body = frame.Bodies().Closest();
 
-                    if (!_faceSource.IsTrackingIdValid)
+                    /* ADDED BY DOUG */
+                    // If we have a body, check the joints and their positions/angles
+                    if (body != null)
                     {
-                        if (body != null)
+                        currBodyState = BodyState.FrontWait;
+                        IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
+                       
+                        frameCount++;
+                        if (frameCount >= FRAME_INTERVAL)
+                        {
+                            currRotation = Math.Round(Math.Abs(joints[sholR].Position.Z - joints[sholL].Position.Z), 4);
+                            tblFeedback.Text = "Shoulder Z-coordinate difference: \n"
+                                + currRotation;
+                            frameCount = 0;
+                        }
+                        
+                        if (!_faceSource.IsTrackingIdValid)
                         {
                             _faceSource.TrackingId = body.TrackingId;
+                        }
+
+                        if (currRotation <= FRONT_FACING_THRESHOLD)
+                        {
+                            currBodyState = BodyState.Ready;
+                        }
+                        else
+                        {
+                            currBodyState = BodyState.FrontWait;
                         }
                     }
                 }
@@ -176,11 +222,11 @@ namespace LightBuzz.Vituvius.Samples.WPF
             using (var frame = args.FrameReference.AcquireFrame())
             {
                 string output = "";
-                if (frame != null && frame.IsFaceTracked)
+                if (frame != null && frame.IsFaceTracked && currBodyState == BodyState.Ready)
                 {
                     // Prepare to enter the setup chain in the state diagram
-                    if (currentState == PracticeState.FaceWait)
-                        currentState = PracticeState.NeutralWait;
+                    if (currFaceState == FaceState.FaceWait)
+                        currFaceState = FaceState.NeutralWait;
 
                     // Display basic points only.
                     Face face = frame.Face();
@@ -220,62 +266,48 @@ namespace LightBuzz.Vituvius.Samples.WPF
 
                     /* ADDED BY DOUG */
                     // State handling to determine what to print to message area
-                    switch(currentState)
+                    switch(currFaceState)
                     {
-                        case PracticeState.NeutralWait:
+                        case FaceState.NeutralWait:
                             output += "Step 2/6: Position your head in neutral forward-facing position.\n"
-                            + "Hold for at least + " + RECOMMEND_TIME + " seconds, then press OK.\n";
+                            + "Hold for at least " + RECOMMEND_TIME + " seconds, then press OK.\n";
                             faceSamples[sampleInd] = Math.Round(face.Chin.Z - face.Forehead.Z, 4);
                             break;
-                        case PracticeState.UpTiltWait:
+                        case FaceState.UpTiltWait:
                             output += "Step 3/6: Now tilt your head about 45 degress upwards.\n"
-                            + "Hold for at least + " + RECOMMEND_TIME + " seconds, then press OK.\n";
+                            + "Hold for at least " + RECOMMEND_TIME + " seconds, then press OK.\n";
                             faceSamples[sampleInd] = Math.Round(face.Chin.Z - face.Forehead.Z, 4);
                             break;
-                        case PracticeState.DownTiltWait:
+                        case FaceState.DownTiltWait:
                             output += "Step 4/6: Now tilt your head about 45 degress downwards.\n"
-                            + "Hold for at least + " + RECOMMEND_TIME + " seconds, then press OK.\n";
+                            + "Hold for at least " + RECOMMEND_TIME + " seconds, then press OK.\n";
                             faceSamples[sampleInd] = Math.Round(face.Chin.Z - face.Forehead.Z, 4);
                             break;
-                        case PracticeState.LeftTiltWait:
+                        case FaceState.LeftTiltWait:
                             output += "Step 5/6: Turn your head 45 degress diagonally 45 degrees to the left.\n"
-                            + "Hold for at least + " + RECOMMEND_TIME + " seconds, then press OK.\n";
+                            + "Hold for at least " + RECOMMEND_TIME + " seconds, then press OK.\n";
                             faceSamples[sampleInd] = Math.Round(face.CheekRight.Z - face.CheekLeft.Z, 4);
                             break;
-                        case PracticeState.RightTiltWait:
+                        case FaceState.RightTiltWait:
                             output += "Step 6/6: Now turn your head 45 degress diagonally 45 degrees to the right.\n"
-                            + "Hold for at least + " + RECOMMEND_TIME + " seconds, then press OK.\n";
+                            + "Hold for at least " + RECOMMEND_TIME + " seconds, then press OK.\n";
                             faceSamples[sampleInd] = Math.Round(face.CheekRight.Z - face.CheekLeft.Z, 4);
                             break;
-                        case PracticeState.Presentation:
+                        case FaceState.Presentation:
                             output += "yTilts = { " + yTilts[0] + ", " + yTilts[1] + ", " + yTilts[2] + " }\n"
                                 + "xTilts = { " + xTilts[0] + ", " + xTilts[1] + ", " + xTilts[2] + " }\n";
                             break;
                     }
                     // Record samples for the setup parameters
                     sampleInd = (sampleInd + 1) % NUM_SAMPLES;
-
-                    // Track positions of certain interesting face points
-                    frameCount++;
-                    if (frameCount >= FRAME_INTERVAL)
-                    {
-                        output += "Forehead-chin diffs: ("
-                            + Math.Round(face.Chin.X - face.Forehead.X, 4) + ", "
-                            + Math.Round(face.Chin.Y - face.Forehead.Y, 4) + ", "
-                            + Math.Round(face.Chin.Z - face.Forehead.Z, 4)
-                            + ")";
-                        frameCount = 0;
-                    }
-
-                    // TODO: for test
                     output += sampleInd;
                 }
                 else
                 {
-                    output = "Step 1/6: Stand in front of the Kinect camera.";
+                    output = "Step 1/6: Stand up, face as squarely with the Kinect as you can, then wait for camera to find your face.";
                 }
-                // Show message in window
-                tblFaceStatus.Text = output;
+
+                tblFaceStatus.Text = output; // Show message in window
             }
         }
     }

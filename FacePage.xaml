@@ -30,7 +30,7 @@
             <TextBlock x:Name="pageTitle" Text="Back" Style="{StaticResource HeaderTextBlockStyle}" 
                        IsHitTestVisible="false" TextWrapping="NoWrap" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,25" Width="210" Grid.ColumnSpan="2" Height="40" />
             <TextBlock Style="{StaticResource HeaderTextBlockStyle}" Grid.Column="2" TextAlignment="Center"
-                       IsHitTestVisible="false" TextWrapping="NoWrap" VerticalAlignment="Center" FontSize="14pt" Height="80" Grid.ColumnSpan="2">
+                       IsHitTestVisible="false" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="14pt" Height="80" Grid.ColumnSpan="2">
                 <Run x:Name="tblFaceStatus" Text="-----" />
             </TextBlock>
             <Button x:Name="okButton" Grid.Column="4" Click="Okay_Click"
@@ -40,6 +40,12 @@
         </Grid>
         <Viewbox Grid.Row="1">
             <Grid Width="512" Height="424" Background="Black">
+
+                <TextBlock Style="{StaticResource HeaderTextBlockStyle}" TextAlignment="Left"
+                    	IsHitTestVisible="false" TextWrapping="WrapWithOverflow" VerticalAlignment="Center" FontSize="10pt" Height="219" Canvas.Left="523" Canvas.Top="137" Width="131" Margin="-113,95,494,110">
+                        <Run x:Name="tblRecords" Text="TESTTEST" />
+                </TextBlock>
+
                 <Image Name="camera" />
                 <Canvas Name="canvas">
                     <Ellipse Name="eyeLeft" Width="2" Height="2" Fill="Orange" />
@@ -50,6 +56,10 @@
                     <Ellipse Name="mouth" Width="2" Height="2" Fill="Orange" />
                     <Ellipse Name="chin" Width="2" Height="2" Fill="Orange" />
                     <Ellipse Name="forehead" Width="2" Height="2" Fill="Orange" />
+                    <TextBlock Style="{StaticResource HeaderTextBlockStyle}" TextAlignment="Right"
+                    	IsHitTestVisible="false" TextWrapping="WrapWithOverflow" VerticalAlignment="Center" FontSize="10pt" Height="219" Canvas.Left="523" Canvas.Top="137" Width="131">
+                        <Run x:Name="tblFeedback" Text="TESTTEST" />
+                    </TextBlock>
                 </Canvas>
             </Grid>
         </Viewbox>
