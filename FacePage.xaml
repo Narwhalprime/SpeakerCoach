@@ -17,11 +17,11 @@
         <!-- Back button and page title -->
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="90"/>
+                <ColumnDefinition Width="80"/>
                 <ColumnDefinition Width="72*"/>
                 <ColumnDefinition Width="106*"/>
                 <ColumnDefinition Width="92*"/>
-                <ColumnDefinition Width="135*"/>
+                <ColumnDefinition Width="145*"/>
             </Grid.ColumnDefinitions>
             <Button x:Name="backButton" Click="Back_Click" Grid.Column="0"
                     Style="{StaticResource NavigationBackButtonNormalStyle}"
@@ -36,14 +36,14 @@
             <Button x:Name="okButton" Grid.Column="4" Click="Okay_Click"
                 Style="{StaticResource NavigationBackButtonNormalStyle}"
                 HorizontalAlignment="Center" FontSize="20pt"
-                VerticalAlignment="Center" Content="Okay" Height="82" Width="194" Margin="38,4"/>
+                VerticalAlignment="Center" Content="OK" Height="82" Width="194" Margin="38,4"/>
         </Grid>
         <Viewbox Grid.Row="1">
             <Grid Width="512" Height="424" Background="Black">
 
                 <TextBlock Style="{StaticResource HeaderTextBlockStyle}" TextAlignment="Left"
                     	IsHitTestVisible="false" TextWrapping="WrapWithOverflow" VerticalAlignment="Center" FontSize="10pt" Height="219" Canvas.Left="523" Canvas.Top="137" Width="131" Margin="-113,95,494,110">
-                        <Run x:Name="tblRecords" Text="TESTTEST" />
+                        <Run x:Name="tblRecords" Text="-----" />
                 </TextBlock>
 
                 <Image Name="camera" />
@@ -57,8 +57,8 @@
                     <Ellipse Name="chin" Width="2" Height="2" Fill="Orange" />
                     <Ellipse Name="forehead" Width="2" Height="2" Fill="Orange" />
                     <TextBlock Style="{StaticResource HeaderTextBlockStyle}" TextAlignment="Right"
-                    	IsHitTestVisible="false" TextWrapping="WrapWithOverflow" VerticalAlignment="Center" FontSize="10pt" Height="219" Canvas.Left="523" Canvas.Top="137" Width="131">
-                        <Run x:Name="tblFeedback" Text="TESTTEST" />
+                    	IsHitTestVisible="false"  TextWrapping="WrapWithOverflow" VerticalAlignment="Center" FontSize="10pt" Height="219" Canvas.Left="523" Canvas.Top="137" Width="131">
+                        <Run x:Name="tblFeedback" Text="-----" />
                     </TextBlock>
                 </Canvas>
             </Grid>

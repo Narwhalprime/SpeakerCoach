@@ -14,6 +14,22 @@ using System.Windows.Shapes;
 
 namespace LightBuzz.Vituvius.Samples.WPF
 {
+    public enum FlagType
+    {
+        HeadUp, HeadDown, HeadLeft, HeadRight, Shoulders
+    };
+
+    public class PresentationFlag
+    {
+        FlagType flag;
+        long timestamp = 0;
+        public PresentationFlag(FlagType f, long t)
+        {
+            flag = f;
+            timestamp = t;
+        }
+    }
+
     public partial class FacePage : Page
     {
         private KinectSensor _sensor = null;
@@ -25,10 +41,12 @@ namespace LightBuzz.Vituvius.Samples.WPF
         private HighDefinitionFaceFrameReader _faceReader = null;
         
         private List<Ellipse> _ellipses = new List<Ellipse>();
+        private List<PresentationFlag> _currentFlags = new List<PresentationFlag>();
 
         private readonly int FRAME_INTERVAL = 10; // for testing
         private readonly int RECOMMEND_TIME = 3; // how long should user position head
         private int frameCount = 0;
+        private long startTime;
 
         /* ADDED BY DOUG */
         // Settings about the user's neutral/looking away positions
@@ -59,19 +77,15 @@ namespace LightBuzz.Vituvius.Samples.WPF
         private double currRotation = 0.0;
         private double currYTilt = 0.0;
         private double currXTilt = 0.0;
-        private readonly double FRONT_FACING_THRESHOLD = 0.15; // TODO: modify based on distance from camera?
-        private readonly int ALERT_DELAY_FRAMES = 100;
+        private readonly double FRONT_FACING_THRESHOLD = 0.15; // would modify based on distance from camera?
+        private readonly int ALERT_DELAY_FRAMES = 90;
         private int delayFrames = 0;
         private readonly String ALERT_WAV_PATH = @"C:\Users\Douglass\Desktop\Kinect stuff\Kinect_LightBuzzStrippedTest\Assets\alert.wav";
-        // TODO: ... yeah, that hardcoded string is the best I'll do for now
 
         // presentation mode - track how many times a flag is activated for each flag
         int[] flagRuns;
-        private enum FlagType
-        {
-            HeadUp, HeadDown, HeadLeft, HeadRight, Shoulders
-        };
-        private readonly int RUN_THRESHOLD = 60;
+        
+        private readonly int RUN_THRESHOLD = 50;
 
         public FacePage()
         {
@@ -173,9 +187,12 @@ namespace LightBuzz.Vituvius.Samples.WPF
                 case FaceState.RightTiltWait:
                     xTilts[2] = average;
                     currFaceState = FaceState.Presentation;
+                    // set start time of practice presentation
+                    startTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
                     break;
                 case FaceState.Presentation:
                     currFaceState = FaceState.Evaluation;
+                    // TODO: Record the results
                     break;
             }
         }
@@ -319,11 +336,18 @@ namespace LightBuzz.Vituvius.Samples.WPF
                                 currFaceState = FaceState.Presentation;
                             }
                             break;
-                        case FaceState.Presentation:
-                            output += "yTilts = { " + yTilts[0] + ", " + yTilts[1] + ", " + yTilts[2] + " }\n"
-                                + "xTilts = { " + xTilts[0] + ", " + xTilts[1] + ", " + xTilts[2] + " }\n";
 
+                        case FaceState.Presentation:
+                            output += "You're all set - start speaking right now! When you're done, press OK.\n";
                             // The BIG "check if these flags are activated" chunk of code
+
+                            // Display timer
+                            long currentTime = getCurrentTimeMillis();
+                            int numMinutes = (int)(currentTime - startTime) / 60000;
+                            int numSeconds = ((int)(currentTime - startTime) / 1000) % 60;
+                            string numSecondsStr = "" + numSeconds;
+
+                            output += "Time elapsed: " + numMinutes + ":" + numSecondsStr.PadLeft(2, '0');
 
                             int enumInd;
                             bool alerted = false;
@@ -335,7 +359,7 @@ namespace LightBuzz.Vituvius.Samples.WPF
                                 if(flagRuns[enumInd] >= RUN_THRESHOLD)
                                 {
                                     flagRuns[enumInd] = 0;
-                                    AlertFlag("Reminder: Tilt head lower!");
+                                    AlertFlag("Reminder: Tilt head lower!", FlagType.HeadUp);
                                     alerted = true;
                                 }
                             }
@@ -346,7 +370,7 @@ namespace LightBuzz.Vituvius.Samples.WPF
                                 if (flagRuns[enumInd] >= RUN_THRESHOLD)
                                 {
                                     flagRuns[enumInd] = 0;
-                                    AlertFlag("Reminder: Tilt head higher!");
+                                    AlertFlag("Reminder: Tilt head higher!", FlagType.HeadDown);
                                     alerted = true;
                                 }
                             }
@@ -359,7 +383,7 @@ namespace LightBuzz.Vituvius.Samples.WPF
                                 if (flagRuns[enumInd] >= RUN_THRESHOLD)
                                 {
                                     flagRuns[enumInd] = 0;
-                                    AlertFlag("Reminder: Tilt head back to the front!");
+                                    AlertFlag("Reminder: Tilt head back to the front!", FlagType.HeadLeft);
                                     alerted = true;
                                 }
                             }
@@ -370,7 +394,7 @@ namespace LightBuzz.Vituvius.Samples.WPF
                                 if (flagRuns[enumInd] >= RUN_THRESHOLD)
                                 {
                                     flagRuns[enumInd] = 0;
-                                    AlertFlag("Reminder: Tilt head back to the front!");
+                                    AlertFlag("Reminder: Tilt head back to the front!", FlagType.HeadRight);
                                     alerted = true;
                                 }
                             }
@@ -382,20 +406,27 @@ namespace LightBuzz.Vituvius.Samples.WPF
                                 if (flagRuns[enumInd] >= RUN_THRESHOLD)
                                 {
                                     flagRuns[enumInd] = 0;
-                                    AlertFlag("Reminder: Straighten your shoulders!");
+                                    AlertFlag("Reminder: Straighten your shoulders!", FlagType.Shoulders);
                                     alerted = true;
                                 }
                             }
                             if(!alerted)
                             {
+                                tblFeedback.Foreground = Brushes.Black;
                                 tblFeedback.Text = "READY";
+                                tblFeedback.FontSize = 18.0;
+                                tblFeedback.FontStyle = FontStyles.Oblique;
+                                tblFeedback.FontWeight = FontWeights.ExtraBold;
                             }
 
+                            break;
+                        case FaceState.Evaluation:
+                            output += "Practice session over! Return to main screen and check your feedback";
                             break;
                     }
                     // Record samples for the setup parameters
                     sampleInd = (sampleInd + 1) % NUM_SAMPLES;
-                    output += sampleInd;
+                    // output += sampleInd; // for testing
                 }
                 else
                 {
@@ -406,15 +437,28 @@ namespace LightBuzz.Vituvius.Samples.WPF
             }
         }
 
-        private void AlertFlag(string alertString)
+        private void AlertFlag(string alertString, FlagType type)
         {
             // Play a warning sound and display feedback
             System.Media.SoundPlayer player = new System.Media.SoundPlayer(ALERT_WAV_PATH);
             player.Play();
+            tblFeedback.Foreground = Brushes.Red;
             tblFeedback.Text = alertString;
+            tblFeedback.FontStyle = FontStyles.Oblique;
+            tblFeedback.FontWeight = FontWeights.ExtraBold;
+            tblFeedback.FontSize = 24.0;
 
             // Switch to alerted state, wait for a while before showing next alert
             currFaceState = FaceState.Alerted;
+            long flagTime = getCurrentTimeMillis();
+
+            // Add flag to list
+            _currentFlags.Add(new PresentationFlag(type, flagTime));
+        }
+
+        public long getCurrentTimeMillis()
+        {
+            return DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
         }
     }
 }
