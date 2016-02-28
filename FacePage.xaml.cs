@@ -29,7 +29,6 @@ namespace LightBuzz.Vituvius.Samples.WPF
         private readonly int FRAME_INTERVAL = 10; // for testing
         private readonly int RECOMMEND_TIME = 3; // how long should user position head
         private int frameCount = 0;
-        private long currentTime = 0;
 
         /* ADDED BY DOUG */
         // Settings about the user's neutral/looking away positions
@@ -39,7 +38,7 @@ namespace LightBuzz.Vituvius.Samples.WPF
         {
             None, KinectWait, FaceWait,
             NeutralWait, UpTiltWait, DownTiltWait, LeftTiltWait, RightTiltWait,
-            Presentation, Evaluation
+            Presentation, Alerted, Evaluation
         };
         private FaceState currFaceState = FaceState.None;
         private enum BodyState
@@ -54,23 +53,40 @@ namespace LightBuzz.Vituvius.Samples.WPF
         private int sampleInd = 0;
         private double[] faceSamples;
 
-        // posture-related
+        // posture-related live values
         JointType sholL = JointType.ShoulderLeft;
-        JointType spMid = JointType.SpineMid;
         JointType sholR = JointType.ShoulderRight;
         private double currRotation = 0.0;
+        private double currYTilt = 0.0;
+        private double currXTilt = 0.0;
         private readonly double FRONT_FACING_THRESHOLD = 0.15; // TODO: modify based on distance from camera?
+        private readonly int ALERT_DELAY_FRAMES = 100;
+        private int delayFrames = 0;
+        private readonly String ALERT_WAV_PATH = @"C:\Users\Douglass\Desktop\Kinect stuff\Kinect_LightBuzzStrippedTest\Assets\alert.wav";
+        // TODO: ... yeah, that hardcoded string is the best I'll do for now
+
+        // presentation mode - track how many times a flag is activated for each flag
+        int[] flagRuns;
+        private enum FlagType
+        {
+            HeadUp, HeadDown, HeadLeft, HeadRight, Shoulders
+        };
+        private readonly int RUN_THRESHOLD = 60;
 
         public FacePage()
         {
+            System.Media.SoundPlayer player = new System.Media.SoundPlayer();
+            player.Play();
+
             InitializeComponent();
 
             currFaceState = FaceState.KinectWait;
             currBodyState = BodyState.KinectWait;
             faceSamples = new double[NUM_SAMPLES];
 
+            flagRuns = new int[Enum.GetNames(typeof(FlagType)).Length];
+
             _sensor = KinectSensor.GetDefault();
-            currentTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
 
             if (_sensor != null)
             {
@@ -194,7 +210,7 @@ namespace LightBuzz.Vituvius.Samples.WPF
                         if (frameCount >= FRAME_INTERVAL)
                         {
                             currRotation = Math.Round(Math.Abs(joints[sholR].Position.Z - joints[sholL].Position.Z), 4);
-                            tblFeedback.Text = "Shoulder Z-coordinate difference: \n"
+                            tblRecords.Text = "Shoulders' Z\ndifference: \n"
                                 + currRotation;
                             frameCount = 0;
                         }
@@ -264,7 +280,6 @@ namespace LightBuzz.Vituvius.Samples.WPF
                     Canvas.SetLeft(forehead, pointForehead.X - forehead.Width / 2.0);
                     Canvas.SetTop(forehead, pointForehead.Y - forehead.Height / 2.0);
 
-                    /* ADDED BY DOUG */
                     // State handling to determine what to print to message area
                     switch(currFaceState)
                     {
@@ -293,9 +308,89 @@ namespace LightBuzz.Vituvius.Samples.WPF
                             + "Hold for at least " + RECOMMEND_TIME + " seconds, then press OK.\n";
                             faceSamples[sampleInd] = Math.Round(face.CheekRight.Z - face.CheekLeft.Z, 4);
                             break;
+
+                        case FaceState.Alerted:
+
+                            // Waited long enough: switch back!
+                            delayFrames++;
+                            if(delayFrames >= ALERT_DELAY_FRAMES)
+                            {
+                                delayFrames = 0;
+                                currFaceState = FaceState.Presentation;
+                            }
+                            break;
                         case FaceState.Presentation:
                             output += "yTilts = { " + yTilts[0] + ", " + yTilts[1] + ", " + yTilts[2] + " }\n"
                                 + "xTilts = { " + xTilts[0] + ", " + xTilts[1] + ", " + xTilts[2] + " }\n";
+
+                            // The BIG "check if these flags are activated" chunk of code
+
+                            int enumInd;
+                            bool alerted = false;
+                            currYTilt = Math.Round(face.Chin.Z - face.Forehead.Z, 4);
+                            if(Math.Abs(currYTilt - yTilts[0]) > Math.Abs(currYTilt - yTilts[1]))
+                            {
+                                enumInd = Convert.ToInt32(FlagType.HeadUp);
+                                flagRuns[enumInd]++;
+                                if(flagRuns[enumInd] >= RUN_THRESHOLD)
+                                {
+                                    flagRuns[enumInd] = 0;
+                                    AlertFlag("Reminder: Tilt head lower!");
+                                    alerted = true;
+                                }
+                            }
+                            else if (Math.Abs(currYTilt - yTilts[0]) > Math.Abs(currYTilt - yTilts[2]))
+                            {
+                                enumInd = Convert.ToInt32(FlagType.HeadDown);
+                                flagRuns[enumInd]++;
+                                if (flagRuns[enumInd] >= RUN_THRESHOLD)
+                                {
+                                    flagRuns[enumInd] = 0;
+                                    AlertFlag("Reminder: Tilt head higher!");
+                                    alerted = true;
+                                }
+                            }
+
+                            currXTilt = Math.Round(face.CheekRight.Z - face.CheekLeft.Z, 4);
+                            if(Math.Abs(currXTilt - xTilts[0]) > Math.Abs(currXTilt - xTilts[1]))
+                            {
+                                enumInd = Convert.ToInt32(FlagType.HeadLeft);
+                                flagRuns[enumInd]++;
+                                if (flagRuns[enumInd] >= RUN_THRESHOLD)
+                                {
+                                    flagRuns[enumInd] = 0;
+                                    AlertFlag("Reminder: Tilt head back to the front!");
+                                    alerted = true;
+                                }
+                            }
+                            else if (Math.Abs(currXTilt - xTilts[0]) > Math.Abs(currXTilt - xTilts[2]))
+                            {
+                                enumInd = Convert.ToInt32(FlagType.HeadRight);
+                                flagRuns[enumInd]++;
+                                if (flagRuns[enumInd] >= RUN_THRESHOLD)
+                                {
+                                    flagRuns[enumInd] = 0;
+                                    AlertFlag("Reminder: Tilt head back to the front!");
+                                    alerted = true;
+                                }
+                            }
+
+                            if(currRotation > FRONT_FACING_THRESHOLD)
+                            {
+                                enumInd = Convert.ToInt32(FlagType.Shoulders);
+                                flagRuns[enumInd]++;
+                                if (flagRuns[enumInd] >= RUN_THRESHOLD)
+                                {
+                                    flagRuns[enumInd] = 0;
+                                    AlertFlag("Reminder: Straighten your shoulders!");
+                                    alerted = true;
+                                }
+                            }
+                            if(!alerted)
+                            {
+                                tblFeedback.Text = "READY";
+                            }
+
                             break;
                     }
                     // Record samples for the setup parameters
@@ -309,6 +404,17 @@ namespace LightBuzz.Vituvius.Samples.WPF
 
                 tblFaceStatus.Text = output; // Show message in window
             }
+        }
+
+        private void AlertFlag(string alertString)
+        {
+            // Play a warning sound and display feedback
+            System.Media.SoundPlayer player = new System.Media.SoundPlayer(ALERT_WAV_PATH);
+            player.Play();
+            tblFeedback.Text = alertString;
+
+            // Switch to alerted state, wait for a while before showing next alert
+            currFaceState = FaceState.Alerted;
         }
     }
 }
